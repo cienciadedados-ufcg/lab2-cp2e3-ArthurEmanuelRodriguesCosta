@@ -1,0 +1,105 @@
+---
+title: "Lab 2 - Checkpoint 3"
+author: "Arthur Costa"
+date: "29 de maio de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plotly)
+library(tidyverse)
+library(here)
+theme_set(theme_bw())
+
+respostas = read_csv(here::here("data/respostas-merepresenta-2016.csv"), 
+                     col_types = cols(.default = col_character(), 
+                                      nota_partido = col_integer(), 
+                                      votos_recebidos = col_integer()))
+
+respostas_long = 
+    respostas %>% 
+    gather(key = "tema", 
+           value = "resposta", 
+           10:23)
+```
+
+## Existe relação entre a quantidade de não's a essas questões e a quantidade de votos dos candidatos?
+
+A partir dessa pergunta, esperava-se tentar perceber alguma relação entre a quantidade de não's de um candidato e a quantidade de votos deste. A partir disso, poderíamos perceber se os candidatos com maiores quantidade de votos, são os que mais votaram "sim". Ou o contrário.
+
+```{r}
+
+conta.naos <- respostas_long %>% 
+    mutate(resposta = ifelse(resposta == "S", T, F)) %>% 
+    group_by(id_candidatura, nome_candidato, votos_recebidos, sigla_estado) %>% 
+    summarise(quant.naos = sum(ifelse(resposta, 0, 1)))
+
+vis <- conta.naos %>% 
+    ggplot(aes(x = log(votos_recebidos), y = quant.naos)) +
+    geom_point() +xlab("Votos recebidos") + ylab("quantidade de votos não")
+
+ggplotly(vis)
+
+```
+
+Todavia, a mancha de pontos demonstra que não há relação entre a quantidade de votos de um candidato e a sua discordância com os pontos apontados nas perguntas.
+
+## Qual a proporção de votos sim na Descriminalização do aborto, por partido?
+
+Pode-se perceber que a proporção de Sim's na questão acima divide bem os partidos. Percebe-se que existem 4 partidos bem destacados que possuem uma proporção de votos positivos acima dos outros. Estes são o PSTU, PCO, PCB e PSOL. Por outro lado, temos que o PSC e PTC se destacam entre os demais, sendo os que mais discordam da questão em pauta.
+
+```{r}
+
+propor.raca <- respostas_long %>% 
+    filter(tema == "Descriminalização do aborto") %>% 
+    group_by(sigla_partido) %>% 
+    summarise(quant.sims = sum(ifelse(resposta == "S", 1,0)), total = n()) %>% 
+    mutate(prop = quant.sims/total)
+    
+vis <- propor.raca %>% ggplot(aes(x = reorder(sigla_partido, prop), y = prop)) +
+    geom_bar(stat = "identity") +xlab("Partido") + ylab("Proporção de Sim's") +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggplotly(vis)
+```
+
+
+## Outras perguntas que surgiram
+
+### Os partidos que estavam no top-4 e no bottom-2 que mais concordam possuem muitos candidatos nos dados?
+
+Com a visualização abaixo, pode-se perceber que os partidos com valores extremos em suas proporções não possuem uma quantidade de candidatos nos dados que parecem ser representativos, com exceção do PSOL.
+
+Desse modo, estima-se que as respostas para esses partidos talvez não representem uma boa visão geral.
+
+```{r}
+
+partidos <- respostas_long %>% 
+    filter(sigla_partido %in% c("PSC", "PTC", "PSOL", "PCB", "PCO", "PSTU")) %>% 
+    group_by(sigla_partido) %>% 
+    summarise(total = n())
+
+vis <- partidos %>% ggplot(aes(x = reorder(sigla_partido, total), y = total)) +
+    geom_bar(stat = "identity") +xlab("Partido") + ylab("Total de candidatos") +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggplotly(vis)
+
+```
+
+### A proporção mostrada na segunda pergunta mantém-se para a questão Adoção por famílias LGBT?
+
+A mudança aqui foi apenas de tema. Todavia, mesmo sendo considerado um tema que divide opiniões da população, os candidatos parecem ter opções de voto próximas, independente do partido. Um indício disso é que a proporção de votos sim nunca é menor que 50%.
+
+```{r}
+
+propor.raca <- respostas_long %>% 
+    filter(tema == "Adoção por famílias LGBTs") %>% 
+    group_by(sigla_partido) %>% 
+    summarise(quant.sims = sum(ifelse(resposta == "S", 1,0)), total = n()) %>% 
+    mutate(prop = quant.sims/total)
+    
+vis <- propor.raca %>% ggplot(aes(x = reorder(sigla_partido, prop), y = prop)) +
+    geom_bar(stat = "identity") +xlab("Partido") + ylab("Proporção de Sim's") +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggplotly(vis)
+```
